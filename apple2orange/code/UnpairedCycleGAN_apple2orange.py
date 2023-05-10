@@ -29,44 +29,6 @@ from keras import backend as K
 
 ### Importing InstanceNormalization
 class InstanceNormalization(Layer):
-    """Instance normalization layer.
-    Normalize the activations of the previous layer at each step,
-    i.e. applies a transformation that maintains the mean activation
-    close to 0 and the activation standard deviation close to 1.
-    # Arguments
-        axis: Integer, the axis that should be normalized
-            (typically the features axis).
-            For instance, after a `Conv2D` layer with
-            `data_format="channels_first"`,
-            set `axis=1` in `InstanceNormalization`.
-            Setting `axis=None` will normalize all values in each
-            instance of the batch.
-            Axis 0 is the batch dimension. `axis` cannot be set to 0 to avoid errors.
-        epsilon: Small float added to variance to avoid dividing by zero.
-        center: If True, add offset of `beta` to normalized tensor.
-            If False, `beta` is ignored.
-        scale: If True, multiply by `gamma`.
-            If False, `gamma` is not used.
-            When the next layer is linear (also e.g. `nn.relu`),
-            this can be disabled since the scaling
-            will be done by the next layer.
-        beta_initializer: Initializer for the beta weight.
-        gamma_initializer: Initializer for the gamma weight.
-        beta_regularizer: Optional regularizer for the beta weight.
-        gamma_regularizer: Optional regularizer for the gamma weight.
-        beta_constraint: Optional constraint for the beta weight.
-        gamma_constraint: Optional constraint for the gamma weight.
-    # Input shape
-        Arbitrary. Use the keyword argument `input_shape`
-        (tuple of integers, does not include the samples axis)
-        when using this layer as the first layer in a Sequential model.
-    # Output shape
-        Same shape as input.
-    # References
-        - [Layer Normalization](https://arxiv.org/abs/1607.06450)
-        - [Instance Normalization: The Missing Ingredient for Fast Stylization](
-        https://arxiv.org/abs/1607.08022)
-    """
     def __init__(self,
                  axis=None,
                  epsilon=1e-3,
@@ -165,7 +127,7 @@ class InstanceNormalization(Layer):
         }
         base_config = super(InstanceNormalization, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
-#fileContents = file.read()
+
 #from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 
 from matplotlib import pyplot
@@ -173,10 +135,6 @@ from matplotlib import pyplot
 
 ### Discriminator Model
 
-# discriminator model (70x70 patchGAN)
-# C64-C128-C256-C512
-#After the last layer, conv to 1-dimensional output, followed by a Sigmoid function.  
-# The “axis” argument is set to -1 for instance norm. to ensure that features are normalized per feature map.
 def define_discriminator(image_shape):
     # weight initialization
     init = RandomNormal(stddev=0.02)
@@ -215,8 +173,6 @@ def define_discriminator(image_shape):
 
 ###  Resnet bolck to be used in the generator
 
-# generator a resnet block to be used in the generator
-# residual block that contains two 3 × 3 convolutional layers with the same number of filters on both layers.
 def resnet_block(n_filters, input_layer):
     # weight initialization
     init = RandomNormal(stddev=0.02)
@@ -232,19 +188,6 @@ def resnet_block(n_filters, input_layer):
     return g
 
 ### Generator model
-
-# define the  generator model - encoder-decoder type architecture
-
-#c7s1-k denote a 7×7 Convolution-InstanceNorm-ReLU layer with k filters and stride 1. 
-#dk denotes a 3 × 3 Convolution-InstanceNorm-ReLU layer with k filters and stride 2.
-# Rk denotes a residual block that contains two 3 × 3 convolutional layers
-# uk denotes a 3 × 3 fractional-strided-Convolution InstanceNorm-ReLU layer with k filters and stride 1/2
-
-#The network with 6 residual blocks consists of:
-#c7s1-64,d128,d256,R256,R256,R256,R256,R256,R256,u128,u64,c7s1-3
-
-#The network with 9 residual blocks consists of:
-#c7s1-64,d128,d256,R256,R256,R256,R256,R256,R256,R256,R256,R256,u128, u64,c7s1-3
 
 def define_generator(image_shape, n_resnet=9):
     # weight initialization
@@ -283,8 +226,6 @@ def define_generator(image_shape, n_resnet=9):
     return model
 
 ### Composite model
-# define a composite model for updating generators by adversarial and cycle loss
-#We define a composite model that will be used to train each generator separately. 
 def define_composite_model(g_model_1, d_model, g_model_2, image_shape):
     # Make the generator of interest trainable as we will be updating these weights.
     #by keeping other models constant.
@@ -319,9 +260,6 @@ def define_composite_model(g_model_1, d_model, g_model_2, image_shape):
     return model
 
 ### Real image generate
-
-# select a batch of random samples, returns images and target
-#Remember that for real images the label (y) is 1. 
 def generate_real_samples(dataset, n_samples, patch_shape):
     # choose random instances
     ix = randint(0, dataset.shape[0], n_samples)
@@ -332,8 +270,7 @@ def generate_real_samples(dataset, n_samples, patch_shape):
     return X, y
 
 ### Fake image generate
-# generate a batch of images, returns images and targets
-#Remember that for fake images the label (y) is 0. 
+
 def generate_fake_samples(g_model, dataset, patch_shape):
     # generate fake images
     X = g_model.predict(dataset)
@@ -378,11 +315,6 @@ def summarize_performance(step, g_model, trainX, name, n_samples=5):
     pyplot.close()
 
 ### Update image pool
-# update image pool for fake images to reduce model oscillation
-# update discriminators using a history of generated images 
-#rather than the ones produced by the latest generators.
-#Original paper recommended keeping an image buffer that stores 
-#the 50 previously created images.
 
 def update_image_pool(pool, images, max_size=50):
     selected = list()
@@ -443,12 +375,10 @@ def train(d_model_A, d_model_B, g_model_AtoB, g_model_BtoA, c_model_AtoB, c_mode
         dB_loss2 = d_model_B.train_on_batch(X_fakeB, y_fakeB)
         
         # summarize performance
-        #Since our batch size =1, the number of iterations would be same as the size of our dataset.
-        #In one epoch you'd have iterations equal to the number of images.
-        #If you have 100 images then 1 epoch would be 100 iterations
+  
         print('Iteration>%d, dA[%.3f,%.3f] dB[%.3f,%.3f] g[%.3f,%.3f]' % (i+1, dA_loss1,dA_loss2, dB_loss1,dB_loss2, g_loss1,g_loss2))
-        # evaluate the model performance periodically
-        #If batch size (total images)=100, performance will be summarized after every 75th iteration.
+     
+    
         if (i+1) % (bat_per_epo * 1) == 0:
             # plot A->B translation
             summarize_performance(i, g_model_AtoB, trainA, 'AtoB')
@@ -506,8 +436,6 @@ print('Loaded dataB: ', dataB_all.shape)
 #dataB = load_images(path + 'trainB/')
 #print('Loaded dataB: ', dataB.shape)
 
-#Get a subset of all images, for faster training during demonstration
-#We could have just read the list of files and only load a subset, better memory management. 
 dataB = resample(dataB_all, 
                  replace=False,     
                  n_samples=500,    
@@ -532,9 +460,7 @@ plt.show()
 data = [dataA, dataB]
 print('Loaded', data[0].shape, data[1].shape)
 
-#Preprocess data to change input range to values between -1 and 1
-# This is because the generator uses tanh activation in the output layer
-#And tanh ranges between -1 and 1
+
 def preprocess_data(data):
     # load compressed arrays
     # unpack arrays
@@ -546,9 +472,6 @@ def preprocess_data(data):
 
 dataset = preprocess_data(data)
 
-
-#from cycleGAN_model import define_generator, define_discriminator, define_composite_model, train
-# define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
 # generator: A -> B
 g_model_AtoB = define_generator(image_shape)
